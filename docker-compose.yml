@@ -1,0 +1,123 @@
+name: valkey-resilience-lab
+
+x-valkey-common: &valkey-common
+  image: ${VALKEY_IMAGE:-valkey/valkey:9.1.2}
+  restart: "no"
+  mem_limit: ${NODE_MEMORY_LIMIT:-768m}
+  command:
+    - valkey-server
+    - /etc/valkey/valkey.conf
+    - --cluster-node-timeout
+    - ${CLUSTER_NODE_TIMEOUT_MS:-3000}
+    - --appendonly
+    - ${APPENDONLY:-no}
+    - --maxmemory
+    - ${VALKEY_MAXMEMORY:-512mb}
+    - --maxmemory-policy
+    - ${VALKEY_MAXMEMORY_POLICY:-allkeys-lru}
+    - --repl-backlog-size
+    - ${REPL_BACKLOG_SIZE:-64mb}
+  ulimits:
+    nofile:
+      soft: 65535
+      hard: 65535
+  healthcheck:
+    test: ["CMD", "valkey-cli", "-h", "127.0.0.1", "-p", "6379", "PING"]
+    interval: 2s
+    timeout: 1s
+    retries: 30
+  networks:
+    bench:
+  volumes:
+    - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+
+services:
+  valkey-1:
+    <<: *valkey-common
+    hostname: valkey-1
+    ports: ["7001:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-1-data:/data
+
+  valkey-2:
+    <<: *valkey-common
+    hostname: valkey-2
+    ports: ["7002:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-2-data:/data
+
+  valkey-3:
+    <<: *valkey-common
+    hostname: valkey-3
+    ports: ["7003:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-3-data:/data
+
+  valkey-4:
+    <<: *valkey-common
+    hostname: valkey-4
+    ports: ["7004:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-4-data:/data
+
+  valkey-5:
+    <<: *valkey-common
+    hostname: valkey-5
+    ports: ["7005:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-5-data:/data
+
+  valkey-6:
+    <<: *valkey-common
+    hostname: valkey-6
+    ports: ["7006:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-6-data:/data
+
+  valkey-7:
+    <<: *valkey-common
+    profiles: [scale]
+    hostname: valkey-7
+    ports: ["7007:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-7-data:/data
+
+  valkey-8:
+    <<: *valkey-common
+    profiles: [scale]
+    hostname: valkey-8
+    ports: ["7008:6379"]
+    volumes:
+      - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey-8-data:/data
+
+  loadgen:
+    profiles: [tools]
+    build:
+      context: ./loadgen
+    networks:
+      bench:
+    volumes:
+      - ./results:/results
+    entrypoint: ["/usr/local/bin/cdc-load"]
+
+networks:
+  bench:
+    driver: bridge
+
+volumes:
+  valkey-1-data:
+  valkey-2-data:
+  valkey-3-data:
+  valkey-4-data:
+  valkey-5-data:
+  valkey-6-data:
+  valkey-7-data:
+  valkey-8-data:
