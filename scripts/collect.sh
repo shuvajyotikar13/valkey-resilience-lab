@@ -12,7 +12,7 @@ server_csv="${out_dir}/server.csv"
 links_csv="${out_dir}/replication-links.csv"
 docker_stats="${out_dir}/docker-stats.log"
 
-printf '%s\n' 'timestamp,epoch_s,node,role,master_link_status,master_sync_in_progress,master_last_io_seconds_ago,connected_slaves,master_repl_offset,slave_repl_offset,repl_backlog_size,repl_backlog_histlen,sync_full,sync_partial_ok,sync_partial_err,used_memory,used_memory_rss,used_memory_dataset,maxmemory,mem_not_counted_for_evict,mem_replication_backlog,mem_total_replication_buffers,mem_clients_normal,mem_clients_slaves,mem_aof_buffer,current_cow_peak,current_cow_size,latest_fork_usec,evicted_keys,total_eviction_exceeded_time,instantaneous_ops_per_sec,instantaneous_input_kbps,instantaneous_output_kbps,connected_clients,total_connections_received,rejected_connections,cluster_connections,total_net_input_bytes,total_net_output_bytes,cluster_state,cluster_slots_fail,cluster_known_nodes' >"$server_csv"
+printf '%s\n' 'timestamp,epoch_s,node,role,master_link_status,master_sync_in_progress,master_last_io_seconds_ago,connected_slaves,master_repl_offset,slave_repl_offset,repl_backlog_size,repl_backlog_histlen,sync_full,sync_partial_ok,sync_partial_err,used_memory,used_memory_rss,used_memory_dataset,maxmemory,mem_not_counted_for_evict,mem_replication_backlog,mem_total_replication_buffers,mem_clients_normal,mem_clients_slaves,mem_aof_buffer,current_cow_peak,current_cow_size,latest_fork_usec,rdb_bgsave_in_progress,rdb_last_bgsave_status,rdb_last_bgsave_time_sec,rdb_last_cow_size,rdb_last_save_time,evicted_keys,total_eviction_exceeded_time,instantaneous_ops_per_sec,instantaneous_input_kbps,instantaneous_output_kbps,connected_clients,total_connections_received,rejected_connections,cluster_connections,total_net_input_bytes,total_net_output_bytes,cluster_state,cluster_slots_fail,cluster_known_nodes' >"$server_csv"
 printf '%s\n' 'timestamp,epoch_s,primary,replica_ip,replica_port,state,primary_offset,replica_offset,gap_bytes,reported_lag_s,backlog_size,backlog_histlen' >"$links_csv"
 : >"$docker_stats"
 
@@ -64,6 +64,11 @@ while true; do
       $1 == "current_cow_peak" { current_cow_peak=clean($2) }
       $1 == "current_cow_size" { current_cow_size=clean($2) }
       $1 == "latest_fork_usec" { latest_fork_usec=clean($2) }
+      $1 == "rdb_bgsave_in_progress" { rdb_bgsave_in_progress=clean($2) }
+      $1 == "rdb_last_bgsave_status" { rdb_last_bgsave_status=clean($2) }
+      $1 == "rdb_last_bgsave_time_sec" { rdb_last_bgsave_time_sec=clean($2) }
+      $1 == "rdb_last_cow_size" { rdb_last_cow_size=clean($2) }
+      $1 == "rdb_last_save_time" { rdb_last_save_time=clean($2) }
       $1 == "evicted_keys" { evicted_keys=clean($2) }
       $1 == "total_eviction_exceeded_time" { eviction_time=clean($2) }
       $1 == "instantaneous_ops_per_sec" { ops=clean($2) }
@@ -89,6 +94,8 @@ while true; do
           value_or_zero(mem_not_counted),value_or_zero(mem_backlog),value_or_zero(mem_repl_buffers),
           value_or_zero(mem_clients_normal),value_or_zero(mem_clients_slaves),value_or_zero(mem_aof_buffer),
           value_or_zero(current_cow_peak),value_or_zero(current_cow_size),value_or_zero(latest_fork_usec),
+          value_or_zero(rdb_bgsave_in_progress),rdb_last_bgsave_status,value_or_zero(rdb_last_bgsave_time_sec),
+          value_or_zero(rdb_last_cow_size),value_or_zero(rdb_last_save_time),
           value_or_zero(evicted_keys),value_or_zero(eviction_time),value_or_zero(ops),value_or_zero(input_kbps),
           value_or_zero(output_kbps),value_or_zero(connected_clients),value_or_zero(total_connections),
           value_or_zero(rejected_connections),value_or_zero(cluster_connections),value_or_zero(net_in),

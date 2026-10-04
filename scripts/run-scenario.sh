@@ -14,12 +14,12 @@ case "$scenario" in
 esac
 
 if [[ "${RESET_BEFORE_RUN:-0}" == "1" ]]; then
-  "${SCRIPT_DIR}/reset.sh"
-  "${SCRIPT_DIR}/bootstrap.sh"
+  bash "${SCRIPT_DIR}/reset.sh"
+  bash "${SCRIPT_DIR}/bootstrap.sh"
 fi
 
 ensure_cluster
-"${SCRIPT_DIR}/preload.sh"
+bash "${SCRIPT_DIR}/preload.sh"
 
 warmup="${WARMUP_SECONDS:-30}"
 fault="${FAULT_SECONDS:-20}"
@@ -49,6 +49,18 @@ event() {
   log "${name}: ${details}"
 }
 
+has_cluster_flag() {
+  local flags="$1"
+  local wanted="$2"
+  [[ ",${flags}," == *",${wanted},"* ]]
+}
+
+info_value() {
+  local info="$1"
+  local key="$2"
+  awk -F: -v wanted="$key" '$1 == wanted {gsub(/\r/, "", $2); print $2; exit}' <<<"$info"
+}
+
 primary="$(first_primary)"
 replica="$(replica_for_primary "$primary")"
 original_backlog="$(cli "$primary" CONFIG GET repl-backlog-size | tail -n 1 | tr -d '\r')"
@@ -74,7 +86,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-"${SCRIPT_DIR}/capture-env.sh" "$run_dir"
+bash "${SCRIPT_DIR}/capture-env.sh" "$run_dir"
 {
   printf 'scenario=%s\n' "$scenario"
   printf 'primary_under_test=%s\n' "$primary"
@@ -112,7 +124,7 @@ case "$scenario" in
 esac
 
 event scenario_start "duration=${total}s target_rps=${target_rps} retry=${retry_policy}"
-"${SCRIPT_DIR}/collect.sh" "$run_dir" 1 "$total" &
+bash "${SCRIPT_DIR}/collect.sh" "$run_dir" 1 "$total" &
 collector_pid=$!
 
 "${COMPOSE[@]}" run --rm --no-deps loadgen \
@@ -176,15 +188,77 @@ case "$scenario" in
     fi
     ;;
   bgsave)
+    previous_lastsave="$(cli "$primary" LASTSAVE | tr -d '\r')"
+    bgsave_epoch="$(date +%s)"
     event bgsave_requested "$primary"
     cli "$primary" BGSAVE >/dev/null
     event bgsave_started "Watch current_cow_peak latest_fork_usec and RSS"
-    sleep "$fault"
+    bgsave_deadline=$((bgsave_epoch + fault))
+    bgsave_completed=0
+    while (( $(date +%s) < bgsave_deadline )); do
+      persistence="$(cli "$primary" INFO persistence 2>/dev/null || true)"
+      last_save="$(info_value "$persistence" rdb_last_save_time)"
+      in_progress="$(info_value "$persistence" rdb_bgsave_in_progress)"
+      if [[ -n "$last_save" && "$last_save" -gt "$previous_lastsave" && "${in_progress:-0}" == "0" ]]; then
+        now_epoch="$(date +%s)"
+        last_cow="$(info_value "$persistence" rdb_last_cow_size)"
+        fork_usec="$(info_value "$persistence" latest_fork_usec)"
+        event bgsave_completed "elapsed=$((now_epoch - bgsave_epoch))s rdb_last_cow_size=${last_cow:-0} latest_fork_usec=${fork_usec:-0}"
+        bgsave_completed=1
+        break
+      fi
+      sleep 1
+    done
+    if [[ "$bgsave_completed" == "0" ]]; then
+      event bgsave_completion_not_observed "Check INFO persistence and loadgen duration"
+    fi
+    remaining=$((bgsave_deadline - $(date +%s)))
+    if (( remaining > 0 )); then
+      sleep "$remaining"
+    fi
     ;;
   failover-none|failover-immediate|failover-jitter)
-    event primary_stopped "$primary; retry=${retry_policy}"
+    failed_primary_id="$(node_id "$primary")"
+    promotion_candidate_id="$(node_id "$replica")"
     "${COMPOSE[@]}" stop -t 1 "$primary" >/dev/null
-    sleep "$fault"
+    failure_epoch="$(date +%s)"
+    event primary_stopped "$primary; retry=${retry_policy}"
+
+    fault_deadline=$((failure_epoch + fault))
+    failure_detected=0
+    promotion_detected=0
+    while (( $(date +%s) < fault_deadline )); do
+      observer="$(first_running_core)"
+      nodes="$(cli "$observer" CLUSTER NODES 2>/dev/null || true)"
+      failed_flags="$(awk -v id="$failed_primary_id" '$1 == id {print $3; exit}' <<<"$nodes")"
+      candidate_flags="$(awk -v id="$promotion_candidate_id" '$1 == id {print $3; exit}' <<<"$nodes")"
+      now_epoch="$(date +%s)"
+
+      if [[ "$failure_detected" == "0" ]] && has_cluster_flag "$failed_flags" fail; then
+        event failure_detected "$primary; elapsed=$((now_epoch - failure_epoch))s observer=${observer}"
+        failure_detected=1
+      fi
+      if [[ "$promotion_detected" == "0" ]] && has_cluster_flag "$candidate_flags" master; then
+        event replica_promoted "$replica; elapsed=$((now_epoch - failure_epoch))s observer=${observer}"
+        promotion_detected=1
+      fi
+      if [[ "$failure_detected" == "1" && "$promotion_detected" == "1" ]]; then
+        break
+      fi
+      sleep 1
+    done
+
+    if [[ "$failure_detected" == "0" ]]; then
+      event failure_detection_not_observed "$primary within ${fault}s"
+    fi
+    if [[ "$promotion_detected" == "0" ]]; then
+      event promotion_not_observed "$replica within ${fault}s"
+    fi
+
+    remaining=$((fault_deadline - $(date +%s)))
+    if (( remaining > 0 )); then
+      sleep "$remaining"
+    fi
     "${COMPOSE[@]}" start "$primary" >/dev/null
     wait_node "$primary"
     event old_primary_restarted "$primary"

@@ -18,7 +18,7 @@ The tests are designed for the failure chain discussed in **Beyond Throughput: P
 ## One-time setup
 
 ```bash
-cp .env.example .env
+make init
 make build
 make up
 make preload

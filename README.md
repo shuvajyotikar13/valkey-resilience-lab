@@ -20,7 +20,7 @@ The Docker topology is for fast functional reproduction and rehearsal. Do not pu
 - Atomic and legacy resharding scenarios
 - Markdown report plus an optional four-panel PNG chart
 
-See [docs/test-matrix.md](docs/test-matrix.md) for the experiment hypotheses and interpretation rules.
+Use [RESILIENCE_TESTS.md](RESILIENCE_TESTS.md) for the complete command catalog, signals to inspect and expected interpretations. See [docs/test-matrix.md](docs/test-matrix.md) for the compact experiment hypotheses and publication rules.
 
 ## Fast boot
 
@@ -34,12 +34,14 @@ Prerequisites:
 Start with:
 
 ```bash
-cp .env.example .env
+make init
 make build
 make up
 make preload
 make baseline
 ```
+
+`make init` creates `.env` from the visible `env.example` template when it does not already exist. The Make targets invoke scripts through `bash`, so the lab also works when a ZIP extractor does not preserve executable permission bits.
 
 Results are written beneath `results/<timestamp>-<scenario>/`. Each run retains the resolved Compose configuration, Valkey configuration, topology, one-second CSVs, workload summary, event timeline and generated report.
 The environment capture also records the local image ID and repository digest so charts can be traced back to the exact server build.
@@ -51,6 +53,20 @@ RESET_BEFORE_RUN=1 make replica-partial
 ```
 
 `make reset` deletes only this lab's containers and named volumes.
+
+## Troubleshooting a previously downloaded copy
+
+If an older archive reports a missing `go.sum` entry or `Permission denied` for a script, download the current package. To repair the older copy in place instead, run from the directory containing `docker-compose.yml`:
+
+```bash
+cp .env.example .env 2>/dev/null || true
+chmod +x scripts/*.sh
+docker compose build --no-cache loadgen
+make up
+make preload
+```
+
+The current package no longer depends on executable bits being preserved and generates the Go checksum information inside the builder image.
 
 ## Recommended execution order
 

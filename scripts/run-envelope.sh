@@ -5,12 +5,12 @@ set -euo pipefail
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 ensure_cluster
-"${SCRIPT_DIR}/preload.sh"
+bash "${SCRIPT_DIR}/preload.sh"
 
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-envelope"
 run_dir="${LAB_ROOT}/results/${run_id}"
 mkdir -p "$run_dir"
-"${SCRIPT_DIR}/capture-env.sh" "$run_dir"
+bash "${SCRIPT_DIR}/capture-env.sh" "$run_dir"
 
 stages="${ENVELOPE_RPS:-10000 20000 40000 80000 0}"
 duration="${ENVELOPE_STAGE_SECONDS:-60}"
@@ -23,7 +23,7 @@ for rps in $stages; do
   stage_dir="${run_dir}/${stage}"
   mkdir -p "$stage_dir"
   log "Envelope stage ${stage} for ${duration}s"
-  "${SCRIPT_DIR}/collect.sh" "$stage_dir" 1 "$duration" &
+  bash "${SCRIPT_DIR}/collect.sh" "$stage_dir" 1 "$duration" &
   collector_pid=$!
   "${COMPOSE[@]}" run --rm --no-deps loadgen \
     --endpoints valkey-1:6379,valkey-2:6379,valkey-3:6379 \

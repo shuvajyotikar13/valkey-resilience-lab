@@ -8,6 +8,7 @@ import csv
 import json
 import statistics
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,14 @@ def number(row: dict[str, str], key: str) -> float:
     try:
         return float(row.get(key, "0") or 0)
     except ValueError:
+        return 0.0
+
+
+def timestamp_epoch(value: str) -> float:
+    """Convert an RFC3339 timestamp to Unix seconds."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
         return 0.0
 
 
@@ -113,6 +122,7 @@ def build_report(run_dir: Path, args: argparse.Namespace) -> str:
     peak_rss = peak(server, "used_memory_rss")
     peak_used = peak(server, "used_memory")
     peak_cow = peak(server, "current_cow_peak")
+    peak_rdb_last_cow = peak(server, "rdb_last_cow_size")
     peak_not_counted = peak(server, "mem_not_counted_for_evict")
     rates = replication_rates(server)
     median_replication_bps = statistics.median(rates.values()) if rates else 0.0
@@ -161,6 +171,7 @@ def build_report(run_dir: Path, args: argparse.Namespace) -> str:
         f"| Peak per-node used memory | {mib(peak_used)} |",
         f"| Peak per-node RSS | {mib(peak_rss)} |",
         f"| Peak per-node copy-on-write | {mib(peak_cow)} |",
+        f"| Peak recorded last-RDB copy-on-write | {mib(peak_rdb_last_cow)} |",
         f"| Peak per-node non-evictable memory | {mib(peak_not_counted)} |",
         f"| Evicted keys counter delta | {counter_delta(server, 'evicted_keys'):,.0f} |",
         f"| New server connections counter delta | {counter_delta(server, 'total_connections_received'):,.0f} |",
@@ -219,15 +230,21 @@ def create_plot(run_dir: Path) -> bool:
     links = rows(run_dir / "replication-links.csv")
     events = rows(run_dir / "events.csv")
     epochs = [number(r, "epoch_s") for r in server] + [number(r, "epoch_s") for r in links]
-    if workload:
-        epochs += [number(r, "elapsed_s") for r in workload]
+    epochs += [timestamp_epoch(r.get("timestamp", "")) for r in workload]
+    epochs = [epoch for epoch in epochs if epoch > 0]
     if not epochs:
         return False
     absolute_epochs = [e for e in [number(r, "epoch_s") for r in server] if e > 0]
-    epoch0 = min(absolute_epochs) if absolute_epochs else 0
+    epoch0 = min(absolute_epochs) if absolute_epochs else min(epochs)
 
     fig, axes = plt.subplots(4, 1, figsize=(13, 11), sharex=True, constrained_layout=True)
-    wx = [number(r, "elapsed_s") for r in workload]
+    # Use the absolute workload timestamps so workload samples and event markers
+    # share the collector's time origin. Using elapsed_s here shifted the workload
+    # by the load-container startup delay while events used collector time.
+    wx = []
+    for row in workload:
+        epoch = timestamp_epoch(row.get("timestamp", ""))
+        wx.append(epoch - epoch0 if epoch > 0 else number(row, "elapsed_s"))
     axes[0].plot(wx, [number(r, "logical_ops_s") for r in workload], label="logical ops/s", color="#2563eb")
     axes[0].plot(wx, [number(r, "physical_attempts_s") for r in workload], label="physical attempts/s", color="#f97316")
     axes[0].set_ylabel("operations/s")
@@ -253,11 +270,16 @@ def create_plot(run_dir: Path) -> bool:
         t = number(row, "epoch_s") - epoch0
         rss_by_epoch[t] = max(rss_by_epoch[t], number(row, "used_memory_rss") / 1024 / 1024)
         used_by_epoch[t] = max(used_by_epoch[t], number(row, "used_memory") / 1024 / 1024)
-        cow_by_epoch[t] = max(cow_by_epoch[t], number(row, "current_cow_peak") / 1024 / 1024)
+        cow_by_epoch[t] = max(
+            cow_by_epoch[t],
+            number(row, "current_cow_peak") / 1024 / 1024,
+            number(row, "current_cow_size") / 1024 / 1024,
+            number(row, "rdb_last_cow_size") / 1024 / 1024,
+        )
     xs = sorted(rss_by_epoch)
     axes[3].plot(xs, [rss_by_epoch[t] for t in xs], label="RSS", color="#111827")
     axes[3].plot(xs, [used_by_epoch[t] for t in xs], label="used_memory", color="#16a34a")
-    axes[3].plot(xs, [cow_by_epoch[t] for t in xs], label="COW peak", color="#db2777")
+    axes[3].plot(xs, [cow_by_epoch[t] for t in xs], label="COW current / last RDB", color="#db2777")
     axes[3].set_ylabel("per-node max MiB")
     axes[3].set_xlabel("seconds from collection start")
     axes[3].legend(loc="upper right")

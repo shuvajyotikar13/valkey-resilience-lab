@@ -648,7 +648,9 @@ func writeSummary(path string, cfg config, started, ended time.Time, totals *cou
 			"delete_pct": cfg.DeletePct, "hot_pct": cfg.HotPct, "hot_keys": cfg.HotKeys,
 			"value_sizes": cfg.ValueSizes, "ttl_seconds": cfg.TTLSeconds,
 			"timeout_ms": cfg.Timeout.Milliseconds(), "retry_policy": cfg.RetryPolicy,
-			"max_attempts": cfg.MaxAttempts, "sample_every": cfg.SampleEvery, "seed": cfg.Seed,
+			"max_attempts": cfg.MaxAttempts, "retry_base_ms": cfg.RetryBase.Milliseconds(),
+			"retry_cap_ms": cfg.RetryCap.Milliseconds(), "topology_refresh_ms": cfg.RefreshEvery.Milliseconds(),
+			"sample_every": cfg.SampleEvery, "seed": cfg.Seed,
 		},
 		"totals": map[string]any{
 			"logical_operations": logical, "physical_attempts": totals.attempts.Load(),
