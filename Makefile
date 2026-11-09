@@ -8,7 +8,7 @@ init:
 	@if [[ ! -f .env ]]; then cp env.example .env; echo "Created .env from env.example"; fi
 
 build: init
-	docker compose build loadgen
+	podman compose --profile tools build loadgen
 
 up: init
 	bash ./scripts/bootstrap.sh
@@ -17,8 +17,8 @@ reset:
 	bash ./scripts/reset.sh
 
 status:
-	docker compose ps
-	@docker compose exec -T valkey-1 valkey-cli -h 127.0.0.1 -p 6379 --cluster check valkey-1:6379 || true
+	podman compose ps
+	@podman compose exec -T valkey-1 valkey-cli -h 127.0.0.1 -p 6379 --cluster check valkey-1:6379 || true
 
 preload:
 	bash ./scripts/preload.sh
@@ -66,4 +66,17 @@ report:
 check:
 	bash -n scripts/*.sh
 	python3 -m py_compile scripts/*.py
-	docker compose config >/dev/null
+	podman compose config >/dev/null
+
+.PHONY: betterdb-up betterdb-down betterdb-status
+
+# Optional observability stack; persistent history is in an external volume.
+betterdb-up: up
+	bash ./scripts/betterdb-up.sh
+
+betterdb-down:
+	podman compose -f docker-compose.yml -f docker-compose.betterdb.yml --profile betterdb stop betterdb betterdb-postgres
+
+betterdb-status:
+	podman compose -f docker-compose.yml -f docker-compose.betterdb.yml --profile betterdb ps
+	@curl -fsS http://127.0.0.1:3001/api/health || true

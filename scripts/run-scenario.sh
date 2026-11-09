@@ -19,6 +19,9 @@ if [[ "${RESET_BEFORE_RUN:-0}" == "1" ]]; then
 fi
 
 ensure_cluster
+if [[ "${BETTERDB_ENABLED:-0}" == "1" ]]; then
+  bash "${SCRIPT_DIR}/betterdb-up.sh"
+fi
 bash "${SCRIPT_DIR}/preload.sh"
 
 warmup="${WARMUP_SECONDS:-30}"

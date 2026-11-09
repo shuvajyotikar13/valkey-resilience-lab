@@ -1,0 +1,45 @@
+# Optional monitoring overlay; only loaded by scripts/betterdb-up.sh.
+# Lab-only credentials. Do not deploy this file to a shared network.
+services:
+  betterdb-postgres:
+    image: postgres:16-alpine
+    profiles: [betterdb]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: betterdb
+      POSTGRES_PASSWORD: ${BETTERDB_PG_PASSWORD:-betterdb_lab_local_only}
+      POSTGRES_DB: betterdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U betterdb -d betterdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [bench]
+    volumes:
+      - betterdb-pgdata:/var/lib/postgresql/data
+
+  betterdb:
+    image: ${BETTERDB_IMAGE:-betterdb/monitor:latest}
+    profiles: [betterdb]
+    restart: unless-stopped
+    depends_on:
+      betterdb-postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: valkey-1
+      DB_PORT: "6379"
+      DB_TYPE: valkey
+      CLUSTER_AUTO_REGISTER_NODES: "true"
+      STORAGE_TYPE: postgres
+      STORAGE_URL: postgresql://betterdb:${BETTERDB_PG_PASSWORD:-betterdb_lab_local_only}@betterdb-postgres:5432/betterdb
+      WORKSPACE_DISABLED: "true"
+      BETTERDB_TELEMETRY: "false"
+    ports:
+      - "127.0.0.1:3001:3001"
+    networks: [bench]
+
+volumes:
+  # External so make reset / docker compose down -v won't delete incident history.
+  betterdb-pgdata:
+    external: true
+    name: valkey-resilience-lab-betterdb-pgdata

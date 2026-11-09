@@ -7,13 +7,13 @@ source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 out_dir="${1:?usage: capture-env.sh OUTPUT_DIR}"
 mkdir -p "$out_dir"
 image="${VALKEY_IMAGE:-valkey/valkey:9.1.2}"
-image_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || echo unavailable)"
-repo_digest="$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}unavailable{{end}}' "$image" 2>/dev/null || echo unavailable)"
+image_id="$(podman image inspect --format '{{.Id}}' "$image" 2>/dev/null || echo unavailable)"
+repo_digest="$(podman image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}unavailable{{end}}' "$image" 2>/dev/null || echo unavailable)"
 
 {
   printf 'captured_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'host_uname=%s\n' "$(uname -a)"
-  printf 'docker_version=%s\n' "$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo unavailable)"
+  printf 'podman_version=%s\n' "$(podman version --format '{{.Server.Version}}' 2>/dev/null || echo unavailable)"
   printf 'valkey_image=%s\n' "$image"
   printf 'valkey_image_id=%s\n' "$image_id"
   printf 'valkey_repo_digest=%s\n' "$repo_digest"
@@ -21,6 +21,8 @@ repo_digest="$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDi
   printf 'workers=%s\n' "${WORKERS:-32}"
   printf 'preload_keys=%s\n' "${PRELOAD_KEYS:-250000}"
   printf 'value_sizes=%s\n' "${VALUE_SIZES:-256:70,1024:25,4096:5}"
+  printf 'betterdb_enabled=%s\n' "${BETTERDB_ENABLED:-0}"
+  printf 'betterdb_image=%s\n' "${BETTERDB_IMAGE:-betterdb/monitor:latest}"
 } >"${out_dir}/environment.txt"
 
 if command -v lscpu >/dev/null 2>&1; then

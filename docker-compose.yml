@@ -36,6 +36,9 @@ services:
     <<: *valkey-common
     hostname: valkey-1
     ports: ["7001:6379"]
+    networks:
+      bench:
+        ipv4_address: 10.89.0.2
     volumes:
       - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey-1-data:/data
@@ -44,6 +47,9 @@ services:
     <<: *valkey-common
     hostname: valkey-2
     ports: ["7002:6379"]
+    networks:
+      bench:
+        ipv4_address: 10.89.0.3
     volumes:
       - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey-2-data:/data
@@ -52,6 +58,9 @@ services:
     <<: *valkey-common
     hostname: valkey-3
     ports: ["7003:6379"]
+    networks:
+      bench:
+        ipv4_address: 10.89.0.4
     volumes:
       - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey-3-data:/data
@@ -60,6 +69,9 @@ services:
     <<: *valkey-common
     hostname: valkey-4
     ports: ["7004:6379"]
+    networks:
+      bench:
+        ipv4_address: 10.89.0.5
     volumes:
       - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey-4-data:/data
@@ -68,6 +80,9 @@ services:
     <<: *valkey-common
     hostname: valkey-5
     ports: ["7005:6379"]
+    networks:
+      bench:
+        ipv4_address: 10.89.0.6
     volumes:
       - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey-5-data:/data
@@ -76,6 +91,9 @@ services:
     <<: *valkey-common
     hostname: valkey-6
     ports: ["7006:6379"]
+    networks:
+      bench:
+        ipv4_address: 10.89.0.7
     volumes:
       - ./configs/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey-6-data:/data
@@ -111,6 +129,9 @@ services:
 networks:
   bench:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 10.89.0.0/24
 
 volumes:
   valkey-1-data:

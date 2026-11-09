@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-COMPOSE=(docker compose -f "${LAB_ROOT}/docker-compose.yml")
+COMPOSE=(podman compose -f "${LAB_ROOT}/docker-compose.yml")
 CORE_NODES=(valkey-1 valkey-2 valkey-3 valkey-4 valkey-5 valkey-6)
 
 if [[ -f "${LAB_ROOT}/.env" ]]; then
@@ -26,7 +26,10 @@ require_command() {
 }
 
 is_running() {
-  "${COMPOSE[@]}" ps --status running --services 2>/dev/null | grep -qx "$1"
+  podman ps \
+    --filter "label=io.podman.compose.service=$1" \
+    --filter status=running \
+    --format '{{.ID}}' 2>/dev/null | grep -q .
 }
 
 cli() {
@@ -148,7 +151,7 @@ cluster_cli() {
 }
 
 ensure_cluster() {
-  require_command docker
+  require_command podman
   if ! wait_cluster_ok 3; then
     printf 'Cluster is not ready. Run: make up\n' >&2
     exit 1

@@ -4,7 +4,7 @@ set -euo pipefail
 # shellcheck source=scripts/lib.sh
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
-require_command docker
+require_command podman
 log "Starting six Valkey nodes"
 "${COMPOSE[@]}" up -d "${CORE_NODES[@]}"
 

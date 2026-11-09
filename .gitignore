@@ -1,0 +1,12 @@
+# Local environment and credentials
+.env
+
+# IDE metadata
+.idea/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Local experiment outputs and generated artifacts
+artifacts/

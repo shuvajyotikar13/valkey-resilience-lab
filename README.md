@@ -6,7 +6,7 @@ This kit tests the argument behind **Beyond Throughput: Production Lessons from 
 
 It provisions Valkey 9.1.2 as a three-primary cluster with one replica per primary, generates a production-inspired CDC workload, records one-second server/client signals, injects controlled failures, and creates a compact run report.
 
-The Docker topology is for fast functional reproduction and rehearsal. Do not publish laptop or Docker Desktop results as Valkey performance claims. The final talk measurements should run on dedicated Linux hosts or comparable isolated VMs.
+The local container topology is for fast functional reproduction and rehearsal. Do not publish laptop or Docker Desktop results as Valkey performance claims. The final talk measurements should run on dedicated Linux hosts or comparable isolated VMs.
 
 ## What is included
 
@@ -22,11 +22,25 @@ The Docker topology is for fast functional reproduction and rehearsal. Do not pu
 
 Use [RESILIENCE_TESTS.md](RESILIENCE_TESTS.md) for the complete command catalog, signals to inspect and expected interpretations. See [docs/test-matrix.md](docs/test-matrix.md) for the compact experiment hypotheses and publication rules.
 
+## Optional BetterDB observability
+
+For a historical Valkey monitoring dashboard, opt in to BetterDB Monitor and its PostgreSQL history store. It joins the existing Compose `bench` network and auto-registers cluster nodes, without replacing the lab's one-second CSV collectors. See [docs/betterdb.md](docs/betterdb.md) for installation, persistence and test interpretation.
+
+For the verified macOS/Podman startup, shutdown, health checks and persistent-data guidance, see the [Podman runbook](docs/PODMAN-RUNBOOK.md).
+
+```bash
+make up
+make betterdb-up
+make betterdb-status
+```
+
+Set `BETTERDB_ENABLED=1` in `.env` to restart BetterDB automatically after scenario resets. The dashboard is at http://localhost:3001.
+
 ## Fast boot
 
 Prerequisites:
 
-- Docker Engine or Docker Desktop with Compose v2
+- Podman with podman-compose
 - At least 8 GB available memory for a comfortable local run
 - Python 3 for the report summary
 - Optional: `pip install -r requirements-report.txt` for PNG charts
@@ -61,7 +75,7 @@ If an older archive reports a missing `go.sum` entry or `Permission denied` for 
 ```bash
 cp .env.example .env 2>/dev/null || true
 chmod +x scripts/*.sh
-docker compose build --no-cache loadgen
+podman compose build --no-cache loadgen
 make up
 make preload
 ```

@@ -1,5 +1,5 @@
 module github.com/example/valkey-resilience-lab/loadgen
 
-go 1.25
+go 1.25.0
 
 require github.com/valkey-io/valkey-go v1.0.77

@@ -10,11 +10,11 @@ duration="${3:-0}"
 mkdir -p "$out_dir"
 server_csv="${out_dir}/server.csv"
 links_csv="${out_dir}/replication-links.csv"
-docker_stats="${out_dir}/docker-stats.log"
+podman_stats="${out_dir}/podman-stats.log"
 
 printf '%s\n' 'timestamp,epoch_s,node,role,master_link_status,master_sync_in_progress,master_last_io_seconds_ago,connected_slaves,master_repl_offset,slave_repl_offset,repl_backlog_size,repl_backlog_histlen,sync_full,sync_partial_ok,sync_partial_err,used_memory,used_memory_rss,used_memory_dataset,maxmemory,mem_not_counted_for_evict,mem_replication_backlog,mem_total_replication_buffers,mem_clients_normal,mem_clients_slaves,mem_aof_buffer,current_cow_peak,current_cow_size,latest_fork_usec,rdb_bgsave_in_progress,rdb_last_bgsave_status,rdb_last_bgsave_time_sec,rdb_last_cow_size,rdb_last_save_time,evicted_keys,total_eviction_exceeded_time,instantaneous_ops_per_sec,instantaneous_input_kbps,instantaneous_output_kbps,connected_clients,total_connections_received,rejected_connections,cluster_connections,total_net_input_bytes,total_net_output_bytes,cluster_state,cluster_slots_fail,cluster_known_nodes' >"$server_csv"
 printf '%s\n' 'timestamp,epoch_s,primary,replica_ip,replica_port,state,primary_offset,replica_offset,gap_bytes,reported_lag_s,backlog_size,backlog_histlen' >"$links_csv"
-: >"$docker_stats"
+: >"$podman_stats"
 
 start="$(date +%s)"
 iteration=0
@@ -120,9 +120,9 @@ while true; do
   done
 
   if ((iteration % 5 == 0)); then
-    printf '[%s]\n' "$timestamp" >>"$docker_stats"
-    docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}},{{.NetIO}},{{.BlockIO}},{{.PIDs}}' \
-      $("${COMPOSE[@]}" ps -q 2>/dev/null) >>"$docker_stats" 2>/dev/null || true
+    printf '[%s]\n' "$timestamp" >>"$podman_stats"
+    podman stats --no-stream --format '{{.Name}},{{.CPU}},{{.MemUsage}},{{.NetIO}},{{.BlockIO}},{{.PIDs}}' \
+      $("${COMPOSE[@]}" ps -q 2>/dev/null) >>"$podman_stats" 2>/dev/null || true
   fi
   iteration=$((iteration + 1))
   sleep "$interval"
